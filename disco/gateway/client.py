@@ -4,6 +4,7 @@ import six
 import ssl
 import time
 
+import platform
 from websocket import ABNF
 
 from disco.gateway.packets import OPCode, RECV, SEND
@@ -228,12 +229,13 @@ class GatewayClient(LoggingClass):
                 'token': self.client.config.token,
                 'compress': True,
                 'large_threshold': 250,
+                'guild_subscriptions': self.client.config.guild_subscriptions,
                 'shard': [
                     int(self.client.config.shard_id),
                     int(self.client.config.shard_count),
                 ],
                 'properties': {
-                    '$os': 'linux',
+                    '$os': platform.system(),
                     '$browser': 'disco',
                     '$device': 'disco',
                     '$referrer': '',
