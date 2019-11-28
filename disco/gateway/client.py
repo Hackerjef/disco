@@ -72,9 +72,8 @@ class GatewayClient(LoggingClass):
         self._heartbeat_acknowledged = True
 
         # Latency
-        self._last_send = time.perf_counter()
-        self._last_ack = time.perf_counter()
-        self.latency = float('inf')
+        self._last_heartbeat = 0
+        self.latency = -1
 
     def send(self, op, data):
         self.limiter.check()
@@ -95,17 +94,11 @@ class GatewayClient(LoggingClass):
                 self._heartbeat_acknowledged = True
                 self.ws.close(status=4000)
                 return
-            else:
-                self._last_send = time.perf_counter()
+            self._last_heartbeat = time.time()
 
             self._send(OPCode.HEARTBEAT, self.seq)
             self._heartbeat_acknowledged = False
             gevent.sleep(interval / 1000)
-
-    def ack(self):
-        ack_time = time.perf_counter()
-        self._last_ack = ack_time
-        self.latency = ack_time - self._last_send
 
     def handle_dispatch(self, packet):
         obj = GatewayEvent.from_dispatch(self.client, packet)
@@ -120,7 +113,7 @@ class GatewayClient(LoggingClass):
     def handle_heartbeat_acknowledge(self, _):
         self.log.debug('Received HEARTBEAT_ACK')
         self._heartbeat_acknowledged = True
-        self.ack()
+        self.latency = int((time.time() - self._last_heartbeat) * 1000)
 
     def handle_reconnect(self, _):
         self.log.warning('Received RECONNECT request, forcing a fresh reconnect')

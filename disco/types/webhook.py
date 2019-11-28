@@ -1,14 +1,20 @@
 import re
 
-from disco.types.base import SlottedModel, Field, snowflake, cached_property
+from disco.types.base import SlottedModel, Field, snowflake, cached_property, enum
 from disco.types.user import User
 
 
 WEBHOOK_URL_RE = re.compile(r'\/api\/webhooks\/(\d+)\/(.[^/]+)')
 
 
+class WebhookTypes(object):
+    INCOMING = 'INCOMING'
+    CHANNEL_FOLLOWER = 'CHANNEL FOLLOWER'
+
+
 class Webhook(SlottedModel):
     id = Field(snowflake)
+    type = Field(enum(WebhookTypes))
     guild_id = Field(snowflake)
     channel_id = Field(snowflake)
     user = Field(User)

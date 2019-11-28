@@ -11,6 +11,7 @@ from disco.types.base import (
 from disco.util.paginator import Paginator
 from disco.util.snowflake import to_snowflake
 from disco.types.user import User
+from disco.types.channel import Channel
 
 
 class MessageType(object):
@@ -26,6 +27,7 @@ class MessageType(object):
     USER_PREMIUM_GUILD_SUBSCRIPTION_TIER_1 = 9
     USER_PREMIUM_GUILD_SUBSCRIPTION_TIER_2 = 10
     USER_PREMIUM_GUILD_SUBSCRIPTION_TIER_3 = 11
+    CHANNEL_FOLLOW_ADD = 12
 
 
 class MessageActivityType(object):
@@ -33,6 +35,12 @@ class MessageActivityType(object):
     SPECTATE = 2
     LISTEN = 3
     JOIN_REQUEST = 5
+
+
+class MessageFlags(object):
+    CROSSPOSTED = 1 << 0
+    IS_CROSSPOST = 1 << 1
+    SUPRESS_EMBEDS = 1 << 2
 
 
 class Emoji(SlottedModel):
@@ -209,6 +217,11 @@ class MessageEmbedVideo(SlottedModel):
     width = Field(int)
 
 
+class MessageEmbedProvider(SlottedModel):
+    name = Field(text)
+    url = Field(text)
+
+
 class MessageEmbedAuthor(SlottedModel):
     """
     An author for the `MessageEmbed`.
@@ -289,6 +302,7 @@ class MessageEmbed(SlottedModel):
     image = Field(MessageEmbedImage)
     thumbnail = Field(MessageEmbedThumbnail)
     video = Field(MessageEmbedVideo)
+    provider = Field(MessageEmbedProvider)
     author = Field(MessageEmbedAuthor)
     fields = ListField(MessageEmbedField)
 
@@ -359,6 +373,12 @@ class MessageAttachment(SlottedModel):
     width = Field(int)
 
 
+class MessageReference(SlottedModel):
+    message_id = Field(snowflake)
+    channel_id = Field(snowflake)
+    guild_id = Field(snowflake)
+
+
 class Message(SlottedModel):
     """
     Represents a Message created within a Channel on Discord.
@@ -404,23 +424,26 @@ class Message(SlottedModel):
     """
     id = Field(snowflake)
     channel_id = Field(snowflake)
-    webhook_id = Field(snowflake)
-    type = Field(enum(MessageType))
     author = Field(User)
     content = Field(text)
-    nonce = Field(snowflake)
     timestamp = Field(datetime)
     edited_timestamp = Field(datetime)
     tts = Field(bool)
     mention_everyone = Field(bool)
-    pinned = Field(bool)
     mentions = AutoDictField(User, 'id')
     mention_roles = ListField(snowflake)
-    embeds = ListField(MessageEmbed)
+    mention_channels = AutoDictField(Channel, 'id')
     attachments = AutoDictField(MessageAttachment, 'id')
+    embeds = ListField(MessageEmbed)
     reactions = ListField(MessageReaction)
+    nonce = Field(snowflake)
+    pinned = Field(bool)
+    type = Field(enum(MessageType))
     activity = Field(MessageActivity)
     application = Field(MessageApplication)
+    message_reference = Field(MessageReference)
+    flags = Field(int)
+    webhook_id = Field(snowflake)
 
     def __str__(self):
         return '<Message {} ({})>'.format(self.id, self.channel_id)

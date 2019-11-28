@@ -315,34 +315,39 @@ class Guild(SlottedModel, Permissible):
         The amount of users using their nitro boost on this guild.
     """
     id = Field(snowflake)
-    owner_id = Field(snowflake)
-    afk_channel_id = Field(snowflake)
-    embed_channel_id = Field(snowflake)
-    system_channel_id = Field(snowflake)
     name = Field(text)
     icon = Field(text)
     splash = Field(text)
-    banner = Field(text)
+    owner_id = Field(snowflake)
     region = Field(text)
+    afk_channel_id = Field(snowflake)
     afk_timeout = Field(int)
     embed_enabled = Field(bool)
+    embed_channel_id = Field(snowflake)
     verification_level = Field(enum(VerificationLevel))
-    explicit_content_filter = Field(enum(ExplicitContentFilterLevel))
     default_message_notifications = Field(enum(DefaultMessageNotificationsLevel))
-    mfa_level = Field(int)
-    features = ListField(str)
-    members = AutoDictField(GuildMember, 'id')
-    channels = AutoDictField(Channel, 'id')
+    explicit_content_filter = Field(enum(ExplicitContentFilterLevel))
     roles = AutoDictField(Role, 'id')
     emojis = AutoDictField(GuildEmoji, 'id')
-    voice_states = AutoDictField(VoiceState, 'session_id')
+    features = ListField(text)
+    mfa_level = Field(int)
+    widget_enabled = Field(bool)
+    widget_channel_id = Field(snowflake)
+    system_channel_id = Field(snowflake)
+    large = Field(bool)
+    unavailable = Field(bool)
     member_count = Field(int)
-    premium_tier = Field(int)
-    premium_subscription_count = Field(int, default=0)
-    vanity_url_code = Field(text)
+    voice_states = AutoDictField(VoiceState, 'session_id')
+    members = AutoDictField(GuildMember, 'id')
+    channels = AutoDictField(Channel, 'id')
     max_presences = Field(int, default=5000)
     max_members = Field(int)
+    vanity_url_code = Field(text)
     description = Field(text)
+    banner = Field(text)
+    premium_tier = Field(int)
+    premium_subscription_count = Field(int, default=0)
+    preferred_locale = Field(str, default='en-US')
 
     def __init__(self, *args, **kwargs):
         super(Guild, self).__init__(*args, **kwargs)
@@ -509,7 +514,7 @@ class Guild(SlottedModel, Permissible):
         """
         return self.client.api.guilds_channels_create(
             self.id, ChannelType.GUILD_VOICE, name=name, permission_overwrites=permission_overwrites,
-            parent_id=parent_id, bitrate=bitrate, user_limit=user_limit, position=position, reason=None)
+            parent_id=parent_id, bitrate=bitrate, user_limit=user_limit, position=position, reason=reason)
 
     def leave(self):
         return self.client.api.users_me_guilds_delete(self.id)
@@ -597,6 +602,9 @@ class AuditLogActionTypes(object):
     MEMBER_BAN_REMOVE = 23
     MEMBER_UPDATE = 24
     MEMBER_ROLE_UPDATE = 25
+    MEMBER_MOVE	= 26
+    MEMBER_DISCONNECT = 27
+    BOT_ADD = 28
     ROLE_CREATE = 30
     ROLE_UPDATE = 31
     ROLE_DELETE = 32
@@ -610,6 +618,12 @@ class AuditLogActionTypes(object):
     EMOJI_UPDATE = 61
     EMOJI_DELETE = 62
     MESSAGE_DELETE = 72
+    MESSAGE_BULK_DELETE = 73
+    MESSAGE_PIN = 74
+    MESSAGE_UNPIN = 75
+    INTEGRATION_CREATE = 80
+    INTEGRATION_UPDATE = 81
+    INTEGRATION_DELETE = 82
 
 
 GUILD_ACTIONS = (

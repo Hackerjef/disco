@@ -4,6 +4,7 @@ from disco.types.base import (
     SlottedModel, Field, snowflake, text, with_equality, with_hash, enum, ListField,
     cached_property,
 )
+from disco.types.message import Emoji
 
 
 class DefaultAvatars(object):
@@ -16,14 +17,36 @@ class DefaultAvatars(object):
     ALL = [BLURPLE, GREY, GREEN, ORANGE, RED]
 
 
+class UserFlags(object):
+    NONE = 0
+    DISCORD_EMPLOYEE = 1 << 0
+    DISCORD_PARTNER = 1 << 1
+    HS_EVENTS = 1 << 2
+    BUG_HUNTER = 1 << 3
+    HS_BRAVERY = 1 << 6
+    HS_BRILLIANCE = 1 << 7
+    HS_BALANCE = 1 << 8
+    EARLY_SUPPORTER = 1 << 9
+    TEAM_USER = 1 << 10
+
+
+class PremiumType(object):
+    CLASSIC = 1
+    NITRO = 2
+
+
 class User(SlottedModel, with_equality('id'), with_hash('id')):
     id = Field(snowflake)
     username = Field(text)
-    avatar = Field(text)
     discriminator = Field(text)
+    avatar = Field(text)
     bot = Field(bool, default=False)
+    mfa_enabled = Field(bool)
+    locale = Field(text)
     verified = Field(bool)
     email = Field(text)
+    flags = Field(int)
+    premium_type = Field(int)
 
     presence = Field(None)
 
@@ -62,11 +85,18 @@ class User(SlottedModel, with_equality('id'), with_hash('id')):
         return u'<User {} ({})>'.format(self.id, self)
 
 
-class GameType(object):
+class ClientStatus(object):
+    DESKTOP = 'DESKTOP'
+    MOBILE = 'MOBILE'
+    WEB = 'WEB'
+
+
+class ActivityType(object):
     DEFAULT = 0
     STREAMING = 1
     LISTENING = 2
     WATCHING = 3
+    CUSTOM = 4
 
 
 class Status(object):
@@ -108,14 +138,15 @@ class Timestamps(SlottedModel):
         return datetime.utcfromtimestamp(self.end / 1000)
 
 
-class Game(SlottedModel):
-    type = Field(enum(GameType))
+class Activity(SlottedModel):
     name = Field(text)
+    type = Field(enum(ActivityType))
     url = Field(text)
     timestamps = Field(Timestamps)
     application_id = Field(text)
     details = Field(text)
     state = Field(text)
+    emoji = Field(Emoji)
     party = Field(Party)
     assets = Field(Assets)
     secrets = Field(Secrets)
@@ -125,5 +156,6 @@ class Game(SlottedModel):
 
 class Presence(SlottedModel):
     user = Field(User, alias='user', ignore_dump=['presence'])
-    game = Field(Game)
+    game = Field(Activity)
     status = Field(enum(Status))
+    client_status = Field(enum(ClientStatus))
