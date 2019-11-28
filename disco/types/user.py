@@ -4,7 +4,6 @@ from disco.types.base import (
     SlottedModel, Field, snowflake, text, with_equality, with_hash, enum, ListField,
     cached_property,
 )
-from disco.types.message import Emoji
 
 
 class DefaultAvatars(object):
@@ -99,6 +98,12 @@ class ActivityType(object):
     CUSTOM = 4
 
 
+class ActivityEmoji(SlottedModel):
+    name = Field(text)
+    id = Field(int)
+    animated = Field(bool)
+
+
 class Status(object):
     ONLINE = 'ONLINE'
     IDLE = 'IDLE'
@@ -137,7 +142,6 @@ class Timestamps(SlottedModel):
     def end_time(self):
         return datetime.utcfromtimestamp(self.end / 1000)
 
-
 class Activity(SlottedModel):
     name = Field(text)
     type = Field(enum(ActivityType))
@@ -146,7 +150,7 @@ class Activity(SlottedModel):
     application_id = Field(text)
     details = Field(text)
     state = Field(text)
-    emoji = Field(Emoji)
+    emoji = Field(ActivityEmoji)
     party = Field(Party)
     assets = Field(Assets)
     secrets = Field(Secrets)
