@@ -144,6 +144,7 @@ class Ready(GatewayEvent):
     user = Field(User)
     guilds = ListField(Guild)
     private_channels = ListField(Channel)
+    trace = ListField(str, alias='_trace')
 
 
 class Resumed(GatewayEvent):
