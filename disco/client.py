@@ -123,7 +123,7 @@ class Client(LoggingClass):
             How long the client has been afk for (in seconds).
         """
         if game and not isinstance(game, Activity):
-            raise TypeError('Game must be a Game model')
+            raise TypeError('Game must be an Activity model')
 
         if status is Status.IDLE and not since:
             since = int(time.time() * 1000)

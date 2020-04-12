@@ -103,6 +103,12 @@ class ActivityEmoji(SlottedModel):
     id = Field(int)
     animated = Field(bool)
 
+    def __str__(self):
+        return '<{}{}:{}>'.format('a:' if self.animated else ':', self.name, self.id)
+    
+    def to_string(self):
+        return '{}{}:{}'.format('a:' if self.animated else '', self.name, self.id)
+
 
 class Status(object):
     ONLINE = 'ONLINE'
