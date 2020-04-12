@@ -45,6 +45,7 @@ class ClientConfig(Config):
     shard_id = 0
     shard_count = 1
     guild_subscriptions = True
+    intents = 0
     max_reconnects = 5
     log_level = 'info'
 
