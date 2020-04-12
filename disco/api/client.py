@@ -510,10 +510,6 @@ class APIClient(LoggingClass):
         r = self.http(Routes.GUILDS_INVITES_LIST, dict(guild=guild))
         return Invite.create_map(self.client, r.json())
 
-    def guilds_integrations_list(self, guild):
-        r = self.http(Routes.GUILDS_INTEGRATIONS_LIST, dict(guild=guild))
-        return Integration.create_map(self.client, r.json())
-
     def guilds_integrations_create(self, guild, type, id):
         r = self.http(Routes.GUILDS_INTEGRATIONS_CREATE, dict(guild=guild), json={"type": type, "id": id})
         return Integration.create(r.json())
