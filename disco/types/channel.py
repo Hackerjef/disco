@@ -134,6 +134,7 @@ class Channel(SlottedModel, Permissible):
     recipients = AutoDictField(User, 'id')
     icon = Field(text)
     owner_id = Field(snowflake)
+    application_id = Field(snowflake)
     parent_id = Field(snowflake)
     last_pin_timestamp = Field(datetime)
 
