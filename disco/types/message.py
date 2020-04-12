@@ -28,6 +28,8 @@ class MessageType(object):
     USER_PREMIUM_GUILD_SUBSCRIPTION_TIER_2 = 10
     USER_PREMIUM_GUILD_SUBSCRIPTION_TIER_3 = 11
     CHANNEL_FOLLOW_ADD = 12
+    GUILD_DISCOVERY_DISQUALIFIED = 14
+    GUILD_DISCOVERY_REQUALIFIED = 15
 
 
 class MessageActivityType(object):
@@ -41,6 +43,8 @@ class MessageFlags(object):
     CROSSPOSTED = 1 << 0
     IS_CROSSPOST = 1 << 1
     SUPRESS_EMBEDS = 1 << 2
+    SOURCE_MESSAGE_DELETED = 1 << 3
+    URGENT = 1 << 4
 
 
 class Emoji(SlottedModel):
@@ -424,6 +428,7 @@ class Message(SlottedModel):
     """
     id = Field(snowflake)
     channel_id = Field(snowflake)
+    guild_id = Field(snowflake)
     author = Field(User)
     content = Field(text)
     timestamp = Field(datetime)
@@ -438,12 +443,12 @@ class Message(SlottedModel):
     reactions = ListField(MessageReaction)
     nonce = Field(snowflake)
     pinned = Field(bool)
+    webhook_id = Field(snowflake)
     type = Field(enum(MessageType))
     activity = Field(MessageActivity)
     application = Field(MessageApplication)
     message_reference = Field(MessageReference)
     flags = Field(int)
-    webhook_id = Field(snowflake)
 
     def __str__(self):
         return '<Message {} ({})>'.format(self.id, self.channel_id)
