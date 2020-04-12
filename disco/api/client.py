@@ -20,6 +20,7 @@ from disco.types.channel import Channel
 from disco.types.invite import Invite
 from disco.types.voice import VoiceRegion
 from disco.types.webhook import Webhook
+from disco.types.integrations import Integrations
 
 
 def _reason_header(value):
@@ -509,6 +510,10 @@ class APIClient(LoggingClass):
     def guilds_invites_list(self, guild):
         r = self.http(Routes.GUILDS_INVITES_LIST, dict(guild=guild))
         return Invite.create_map(self.client, r.json())
+    
+    def guilds_integrations_list(self, guild):
+        r = self.http(Routes.GUILDS_INTEGRATIONS_LIST, dict(guild=guild))
+        return Integrations.create_map(self.client, r.json(), guild_id=guild)
 
     def guilds_integrations_list(self, guild):
         r = self.http(Routes.GUILDS_INTEGRATIONS_LIST, dict(guild=guild))
