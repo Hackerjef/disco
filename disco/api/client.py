@@ -1,4 +1,3 @@
-import six
 import json
 import warnings
 
@@ -7,25 +6,20 @@ from gevent.local import local
 from six.moves.urllib.parse import quote
 
 from disco.api.http import Routes, HTTPClient, to_bytes
+from disco.util.functional import optional
 from disco.util.logging import LoggingClass
 from disco.util.sanitize import S
 from disco.types.user import User
 from disco.types.message import Message
-from disco.types.guild import Guild, GuildMember, GuildBan, Role, GuildEmoji, AuditLogEntry
+from disco.types.oauth import Application, Connection
+from disco.types.guild import (
+    Guild, GuildMember, GuildBan, GuildEmbed, PruneCount, Role, GuildEmoji,
+    AuditLogEntry, Integration,
+)
 from disco.types.channel import Channel
 from disco.types.invite import Invite
+from disco.types.voice import VoiceRegion
 from disco.types.webhook import Webhook
-from disco.types.integrations import Integrations
-
-
-def optional(**kwargs):
-    """
-    Takes a set of keyword arguments, creating a dictionary with only the non-
-    null values.
-
-    :returns: dict
-    """
-    return {k: v for k, v in six.iteritems(kwargs) if v is not None}
 
 
 def _reason_header(value):
@@ -48,8 +42,8 @@ class APIClient(LoggingClass):
     is the only path to the API used within models/other interfaces, and it's
     the recommended path for all third-party users/implementations.
 
-    Args
-    ----
+    Parameters
+    ----------
     token : str
         The Discord authentication token (without prefixes) to be used for all
         HTTP requests.
@@ -100,6 +94,10 @@ class APIClient(LoggingClass):
     def gateway_bot_get(self):
         data = self.http(Routes.GATEWAY_BOT_GET).json()
         return data
+
+    def oauth2_applications_me_get(self):
+        r = self.http(Routes.OAUTH2_APPLICATIONS_ME)
+        return Application.create(self.client, r.json())
 
     def channels_get(self, channel):
         r = self.http(Routes.CHANNELS_GET, dict(channel=channel))
@@ -188,8 +186,8 @@ class APIClient(LoggingClass):
 
         return Message.create(self.client, r.json())
 
-    def channels_messages_modify(self, channel, message, content=None, embed=None, sanitize=False):
-        payload = {}
+    def channels_messages_modify(self, channel, message, content=None, embed=None, flags=None, sanitize=False):
+        payload = optional(flags=flags)
 
         if content is not None:
             if sanitize:
@@ -433,6 +431,17 @@ class APIClient(LoggingClass):
             dict(guild=guild, user=user),
             headers=_reason_header(reason))
 
+    def guilds_prune_count_get(self, guild, days=None):
+        r = self.http(Routes.GUILDS_PRUNE_COUNT, dict(guild=guild), params=optional(days=days))
+        return PruneCount.create(self.client, r.json())
+
+    def guilds_prune_create(self, guild, days=None, compute_prune_count=None):
+        r = self.http(Routes.GUILDS_PRUNE_CREATE, dict(guild=guild), params=optional(
+            days=days,
+            compute_prune_count=compute_prune_count,
+        ))
+        return PruneCount.create(self.client, r.json())
+
     def guilds_roles_list(self, guild):
         r = self.http(Routes.GUILDS_ROLES_LIST, dict(guild=guild))
         return Role.create_map(self.client, r.json(), guild_id=guild)
@@ -493,17 +502,60 @@ class APIClient(LoggingClass):
     def guilds_roles_delete(self, guild, role, reason=None):
         self.http(Routes.GUILDS_ROLES_DELETE, dict(guild=guild, role=role), headers=_reason_header(reason))
 
+    def guilds_voice_regions_list(self, guild):
+        r = self.http(Routes.GUILDS_VOICE_REGIONS_LIST, dict(guild=guild))
+        return VoiceRegion.create_hash(self.client, 'id', r.json())
+
     def guilds_invites_list(self, guild):
         r = self.http(Routes.GUILDS_INVITES_LIST, dict(guild=guild))
         return Invite.create_map(self.client, r.json())
-    
+
     def guilds_integrations_list(self, guild):
         r = self.http(Routes.GUILDS_INTEGRATIONS_LIST, dict(guild=guild))
-        return Integrations.create_map(self.client, r.json(), guild_id=guild)
+        return Integration.create_map(self.client, r.json())
+
+    def guilds_integrations_create(self, guild, type, id):
+        r = self.http(Routes.GUILDS_INTEGRATIONS_CREATE, dict(guild=guild), json={"type": type, "id": id})
+        return Integration.create(r.json())
+
+    def guilds_integrations_modify(
+            self,
+            guild,
+            integration,
+            expire_behavior=None,
+            expire_grace_period=None,
+            enable_emoticons=None):
+
+        self.http(
+            Routes.GUILDS_INTEGRATIONS_MODIFY,
+            dict(guild=guild, integration=integration),
+            json=optional(
+                expire_behavior=expire_behavior,
+                expire_grace_period=expire_grace_period,
+                enable_emoticons=enable_emoticons,
+            ))
+
+    def guilds_integrations_delete(self, guild, integration):
+        self.http(Routes.GUILDS_INTEGRATIONS_DELETE, dict(guild=guild, integration=integration))
+
+    def guilds_integrations_sync(self, guild, integration):
+        self.http(Routes.GUILDS_INTEGRATIONS_SYNC, dict(guild=guild, integration=integration))
 
     def guilds_vanity_url_get(self, guild):
         r = self.http(Routes.GUILDS_VANITY_URL_GET, dict(guild=guild))
         return Invite.create(self.client, r.json())
+
+    def guilds_embed_get(self, guild):
+        r = self.http(Routes.GUILDS_EMBED_GET, dict(guild=guild))
+        return GuildEmbed.create(self.client, r.json())
+
+    def guilds_embed_modify(self, guild, reason=None, **kwargs):
+        r = self.http(
+            Routes.GUILDS_EMBED_MODIFY,
+            dict(guild=guild),
+            json=kwargs,
+            headers=_reason_header(reason))
+        return GuildEmbed.create(self.client, r.json())
 
     def guilds_webhooks_list(self, guild):
         r = self.http(Routes.GUILDS_WEBHOOKS_LIST, dict(guild=guild))
@@ -558,11 +610,16 @@ class APIClient(LoggingClass):
         return User.create(self.client, r.json())
 
     def users_me_get(self):
-        return User.create(self.client, self.http(Routes.USERS_ME_GET).json())
+        r = self.http(Routes.USERS_ME_GET)
+        return User.create(self.client, r.json())
 
     def users_me_patch(self, payload):
         r = self.http(Routes.USERS_ME_PATCH, json=payload)
         return User.create(self.client, r.json())
+
+    def users_me_guilds_list(self):
+        r = self.http(Routes.USERS_ME_GUILDS_LIST)
+        return Guild.create_hash(self.client, 'id', r.json())
 
     def users_me_guilds_delete(self, guild):
         self.http(Routes.USERS_ME_GUILDS_DELETE, dict(guild=guild))
@@ -573,13 +630,21 @@ class APIClient(LoggingClass):
         })
         return Channel.create(self.client, r.json())
 
-    def invites_get(self, invite):
-        r = self.http(Routes.INVITES_GET, dict(invite=invite))
+    def users_me_connections_list(self):
+        r = self.http(Routes.USERS_ME_CONNECTIONS_LIST)
+        return Connection.create_map(self.client, r.json())
+
+    def invites_get(self, invite, with_counts=None):
+        r = self.http(Routes.INVITES_GET, dict(invite=invite), params=optional(with_counts=with_counts))
         return Invite.create(self.client, r.json())
 
     def invites_delete(self, invite, reason=None):
         r = self.http(Routes.INVITES_DELETE, dict(invite=invite), headers=_reason_header(reason))
         return Invite.create(self.client, r.json())
+
+    def voice_regions_list(self):
+        r = self.http(Routes.VOICE_REGIONS_LIST)
+        return VoiceRegion.create_hash(self.client, 'id', r.json())
 
     def webhooks_get(self, webhook):
         r = self.http(Routes.WEBHOOKS_GET, dict(webhook=webhook))

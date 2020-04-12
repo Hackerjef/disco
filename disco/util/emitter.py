@@ -5,6 +5,9 @@ from gevent.event import AsyncResult
 from gevent.queue import Queue, Full
 
 
+from disco.util.logging import LoggingClass
+
+
 class Priority(object):
     # BEFORE is the most dangerous priority level. Every event that flows through
     #  the given emitter instance will be dispatched _sequentially_ to all BEFORE
@@ -16,12 +19,12 @@ class Priority(object):
     #  with the one difference being it executes after all the BEFORE listeners.
     AFTER = 2
 
-    # SEQUENTIAL guarentees that all events your handler recieves will be ordered
+    # SEQUENTIAL guarantees that all events your handler receives will be ordered
     #  when looked at in isolation. SEQUENTIAL handlers will not block other handlers,
     #  but do use a queue internally and thus can fall behind.
     SEQUENTIAL = 3
 
-    # NONE provides no guarentees around the ordering or execution of events, sans
+    # NONE provides no guarantees around the ordering or execution of events, sans
     #  that BEFORE handlers will always complete before any NONE handlers are called.
     NONE = 4
 
@@ -106,7 +109,7 @@ class EmitterSubscription(object):
         self.detach(emitter)
 
 
-class Emitter(object):
+class Emitter(LoggingClass):
     def __init__(self):
         self.event_handlers = {
             k: defaultdict(list) for k in Priority.ALL
@@ -117,15 +120,25 @@ class Emitter(object):
         for listener in self.event_handlers[Priority.BEFORE].get(name, []):
             try:
                 listener(*args, **kwargs)
-            except Exception:
-                pass
+            except Exception as e:
+                self.log.warning('BEFORE {} event handler `{}` raised {}: {}'.format(
+                    name,
+                    listener.callback.__name__,
+                    e.__class__.__name__,
+                    e,
+                ))
 
         # Next execute all AFTER handlers sequentially
         for listener in self.event_handlers[Priority.AFTER].get(name, []):
             try:
                 listener(*args, **kwargs)
-            except Exception:
-                pass
+            except Exception as e:
+                self.log.warning('AFTER {} event handler `{}` raised {}: {}'.format(
+                    name,
+                    listener.callback.__name__,
+                    e.__class__.__name__,
+                    e,
+                ))
 
         # Next enqueue all sequential handlers. This just puts stuff into a queue
         #  without blocking, so we don't have to worry too much

@@ -27,7 +27,7 @@ class BotConfig(Config):
     Attributes
     ----------
     levels : dict(snowflake, str)
-        Mapping of user IDs/role IDs to :class:`disco.bot.commands.CommandLevesls`
+        Mapping of user IDs/role IDs to :class:`disco.bot.commands.CommandLevels`
         which is used for the default commands_level_getter.
     plugins : list[string]
         List of plugin modules to load.
@@ -41,15 +41,21 @@ class BotConfig(Config):
         A dictionary describing what mention types can be considered a mention
         of the bot when using :attr:`commands_require_mention`. This dictionary
         can contain the following keys: `here`, `everyone`, `role`, `user`. When
-        a keys value is set to true, the mention type will be considered for
+        a key's value is set to true, the mention type will be considered for
         command parsing.
     commands_prefix : str
         A string prefix that is required for a message to be considered for
-        command parsing.
+        command parsing.  **DEPRECATED**
+    command_prefixes : list[string]
+        A list of string prefixes that are required for a message to be considered
+        for command parsing.
+    commands_prefix_getter : Optional[function]
+        A function which takes in a message object and returns an array of strings
+        (prefixes).
     commands_allow_edit : bool
-        If true, the bot will reparse an edited message if it was the last sent
+        If true, the bot will re-parse an edited message if it was the last sent
         message in a channel, and did not previously trigger a command. This is
-        helpful for allowing edits to typod commands.
+        helpful for allowing edits to typed commands.
     commands_level_getter : function
         If set, a function which when given a GuildMember or User, returns the
         relevant :class:`disco.bot.commands.CommandLevels`.
@@ -70,10 +76,12 @@ class BotConfig(Config):
         Whether to enable the built-in Flask server which allows plugins to handle
         and route HTTP requests.
     http_host : str
-        The host string for the HTTP Flask server (if enabled)
+        The host string for the HTTP Flask server (if enabled).
     http_port : int
-        The port for the HTTP Flask server (if enabled)
+        The port for the HTTP Flask server (if enabled).
     """
+    deprecated = {'commands_prefix': 'command_prefixes'}
+
     levels = {}
     plugins = []
     plugin_config = {}
@@ -87,7 +95,9 @@ class BotConfig(Config):
         'role': True,
         'user': True,
     }
-    commands_prefix = ''
+    commands_prefix = ''  # now deprecated
+    command_prefixes = []
+    commands_prefix_getter = None
     commands_allow_edit = True
     commands_level_getter = None
     commands_group_abbrev = True
@@ -109,7 +119,7 @@ class BotConfig(Config):
 class Bot(LoggingClass):
     """
     Disco's implementation of a simple but extendable Discord bot. Bots consist
-    of a set of plugins, and a Disco client.
+    of a set of plugins, and a Disco Client.
 
     Parameters
     ----------
@@ -126,7 +136,7 @@ class Bot(LoggingClass):
     config : `BotConfig`
         The bot configuration instance for this bot.
     plugins : dict(str, :class:`disco.bot.plugin.Plugin`)
-        Any plugins this bot has loaded
+        Any plugins this bot has loaded.
     """
     def __init__(self, client, config=None):
         self.client = client
@@ -205,8 +215,7 @@ class Bot(LoggingClass):
         Parameters
         ---------
         plugins : Optional[list(:class:`disco.bot.plugin.Plugin`)]
-            Any plugins to load after creating the new bot instance
-
+            Any plugins to load after creating the new bot instance.
         """
         from disco.cli import disco_main
         inst = cls(disco_main())
@@ -240,7 +249,7 @@ class Bot(LoggingClass):
         Computes all possible abbreviations for a command grouping.
         """
         # For the first pass, we just want to compute each groups possible
-        #  abbreviations that don't conflict with eachother.
+        #  abbreviations that don't conflict with each other.
         possible = {}
         for group in groups:
             for index in range(1, len(group)):
@@ -250,7 +259,7 @@ class Bot(LoggingClass):
                 else:
                     possible[current] = group
 
-        # Now, we want to compute the actual shortest abbreivation out of the
+        # Now, we want to compute the actual shortest abbreviation out of the
         #  possible ones
         result = {}
         for abbrev, group in six.iteritems(possible):
@@ -276,21 +285,30 @@ class Bot(LoggingClass):
         else:
             self.command_matches_re = None
 
-    def get_commands_for_message(self, require_mention, mention_rules, prefix, msg):
+    def get_commands_for_message(self, require_mention, mention_rules, prefixes, msg):
         """
         Generator of all commands that a given message object triggers, based on
         the bots plugins and configuration.
 
         Parameters
         ---------
+        require_mention : bool
+            Checks if the message starts with a mention (and then ignores the prefix(es))
+        mention_rules : dict(str, bool)
+            Whether `user`, `everyone`, and `role` mentions are allowed. Defaults to:
+            `{'user': True, 'everyone': False, 'role': False}`
+        prefixes : list[string]
+            A list of prefixes to check the message starts with.
         msg : :class:`disco.types.message.Message`
-            The message object to parse and find matching commands for
+            The message object to parse and find matching commands for.
 
         Yields
         -------
         tuple(:class:`disco.bot.command.Command`, `re.MatchObject`)
-            All commands the message triggers
+            All commands the message triggers.
         """
+        # somebody better figure out what this yields...
+
         content = msg.content
 
         if require_mention:
@@ -314,11 +332,9 @@ class Bot(LoggingClass):
                 if msg.guild:
                     member = msg.guild.get_member(self.client.state.me)
                     if member:
-                        # If nickname is set, filter both the normal and nick mentions
-                        if member.nick:
-                            content = content.replace(member.mention, '', 1)
-                        content = content.replace('<@!{}>'.format(member.user.id), '', 1)
+                        # Filter both the normal and nick mentions
                         content = content.replace(member.user.mention, '', 1)
+                        content = content.replace(member.user.mention_nickname, '', 1)
                 else:
                     content = content.replace(self.client.state.me.mention, '', 1)
                     content = content.replace('<@!{}>'.format(member.user.id), '', 1)
@@ -330,10 +346,17 @@ class Bot(LoggingClass):
 
             content = content.lstrip()
 
-        if prefix and not content.startswith(prefix):
-            return []
+        # Scan through the prefixes to find the first one that matches.
+        # This may lead to unexpected results, but said unexpectedness
+        # should be easy to avoid. An example of the unexpected results
+        # that may occur would be if one prefix was `!` and one was `!a`.
+        for prefix in prefixes:
+            if prefix and content.startswith(prefix):
+                content = content[len(prefix):]
+                break
         else:
-            content = content[len(prefix):]
+            if not require_mention:  # don't want to prematurely return
+                return []
 
         if not self.command_matches_re or not self.command_matches_re.match(content):
             return []
@@ -343,6 +366,7 @@ class Bot(LoggingClass):
             match = command.compiled_regex.match(content)
             if match:
                 options.append((command, match))
+
         return sorted(options, key=lambda obj: obj[0].group is None)
 
     def get_level(self, actor):
@@ -384,12 +408,15 @@ class Bot(LoggingClass):
         Returns
         -------
         bool
-            whether any commands where successfully triggered by the message
+            Whether any commands where successfully triggered by the message.
         """
+        custom_message_prefixes = (self.config.commands_prefix_getter(msg)
+                                   if self.config.commands_prefix_getter else [])
+
         commands = list(self.get_commands_for_message(
             self.config.commands_require_mention,
             self.config.commands_mention_rules,
-            self.config.commands_prefix,
+            custom_message_prefixes or self.config.command_prefixes,
             msg,
         ))
 
@@ -475,7 +502,7 @@ class Bot(LoggingClass):
             Plugin class to unload and remove.
         """
         if cls.__name__ not in self.plugins:
-            raise Exception('Cannot remove non-existant plugin: {}'.format(cls.__name__))
+            raise Exception('Cannot remove non-existent plugin: {}'.format(cls.__name__))
 
         ctx = {}
         self.plugins[cls.__name__].unload(ctx)

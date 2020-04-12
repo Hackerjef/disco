@@ -19,11 +19,11 @@ class StackMessage(namedtuple('StackMessage', ['id', 'channel_id', 'author_id'])
     Attributes
     ---------
     id : snowflake
-        the id of the message
+        The id of the message.
     channel_id : snowflake
-        the id of the channel this message was sent in
+        The id of the channel this message was sent in.
     author_id : snowflake
-        the id of the author of this message
+        The id of the author of this message.
     """
 
 
@@ -40,8 +40,8 @@ class StateConfig(Config):
 
         Message tracking is implemented using a deque and a namedtuple, meaning
         it should generally not have a high impact on memory, however users who
-        find they do not need and may be experiencing memory pressure can disable
-        this feature entirely using this attribute.
+        find that they do not need and may be experiencing memory pressure can
+        disable this feature entirely using this attribute.
     track_messages_size : int
         The size of the messages deque for each channel. This value can be used
         to calculate the total number of possible `StackMessage` objects kept in
@@ -50,7 +50,7 @@ class StateConfig(Config):
     sync_guild_members : bool
         If true, guilds will be automatically synced when they are initially loaded
         or joined. Generally this setting is OK for smaller bots, however bots in over
-        50 guilds will notice this operation can take a while to complete and may want
+        50 guilds will notice this operation can take a while to complete, and may want
         to batch requests using the underlying `GatewayClient.request_guild_members`
         interface.
     """
@@ -69,33 +69,33 @@ class State(object):
     Attributes
     ----------
     EVENTS : list(str)
-        A list of all events the State object binds to
+        A list of all events the State object binds to.
     client : `disco.client.Client`
-        The Client instance this state is attached to
+        The Client instance this state is attached to.
     config : `StateConfig`
-        The configuration for this state instance
+        The configuration for this state instance.
     me : `User`
-        The currently logged in user
+        The currently logged in user.
     dms : dict(snowflake, `Channel`)
-        Mapping of all known DM Channels
+        Mapping of all known DM Channels.
     guilds : dict(snowflake, `Guild`)
-        Mapping of all known/loaded Guilds
+        Mapping of all known/loaded Guilds.
     channels : dict(snowflake, `Channel`)
-        Weak mapping of all known/loaded Channels
+        Weak mapping of all known/loaded Channels.
     users : dict(snowflake, `User`)
-        Weak mapping of all known/loaded Users
+        Weak mapping of all known/loaded Users.
     voice_clients : dict(str, 'VoiceClient')
-        Weak mapping of all known voice clients
+        Weak mapping of all known voice clients.
     voice_states : dict(str, `VoiceState`)
-        Weak mapping of all known/active Voice States
+        Weak mapping of all known/active Voice States.
     messages : Optional[dict(snowflake, deque)]
-        Mapping of channel ids to deques containing `StackMessage` objects
+        Mapping of channel ids to deques containing `StackMessage` objects.
     """
     EVENTS = [
         'Ready', 'GuildCreate', 'GuildUpdate', 'GuildDelete', 'GuildMemberAdd', 'GuildMemberRemove',
         'GuildMemberUpdate', 'GuildMembersChunk', 'GuildRoleCreate', 'GuildRoleUpdate', 'GuildRoleDelete',
         'GuildEmojisUpdate', 'ChannelCreate', 'ChannelUpdate', 'ChannelDelete', 'VoiceServerUpdate', 'VoiceStateUpdate',
-        'MessageCreate', 'PresenceUpdate',
+        'MessageCreate', 'PresenceUpdate', 'UserUpdate',
     ]
 
     def __init__(self, client, config):
@@ -229,6 +229,11 @@ class State(object):
         elif event.channel.is_dm:
             self.dms[event.channel.id] = event.channel
             self.channels[event.channel.id] = event.channel
+            for user in six.itervalues(event.channel.recipients):
+                if user.id not in self.users:
+                    self.users[user.id] = user
+                else:
+                    event.channel.recipients[user.id] = self.users[user.id]
 
     def on_channel_update(self, event):
         if event.channel.id in self.channels:
@@ -285,6 +290,10 @@ class State(object):
         if event.member.guild_id not in self.guilds:
             return
 
+        # Avoid adding duplicate events to member_count.
+        if event.member.id not in self.guilds[event.member.guild_id].members:
+            self.guilds[event.member.guild_id].member_count += 1
+
         self.guilds[event.member.guild_id].members[event.member.id] = event.member
 
     def on_guild_member_update(self, event):
@@ -303,6 +312,8 @@ class State(object):
         if event.user.id not in self.guilds[event.guild_id].members:
             return
 
+        self.guilds[event.guild_id].member_count -= 1
+
         del self.guilds[event.guild_id].members[event.user.id]
 
     def on_guild_members_chunk(self, event):
@@ -318,6 +329,15 @@ class State(object):
                 self.users[member.id] = member.user
             else:
                 member.user = self.users[member.id]
+
+        if not event.presences:
+            return
+
+        for presence in event.presences:
+            # TODO: this matches the recursive, hackfix method found in on_presence_update
+            user = presence.user
+            user.presence = presence
+            self.users[user.id].inplace_update(user)
 
     def on_guild_role_create(self, event):
         if event.guild_id not in self.guilds:
