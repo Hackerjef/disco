@@ -14,6 +14,10 @@ from disco.types.channel import ChannelType
 from disco.types.user import User
 from disco.types.channel import Channel
 
+class AllowedMentions(object):
+    ROLES = "roles"
+    EVERYONE = "everyone"
+    USERS = "users"
 
 class MessageType(object):
     DEFAULT = 0

@@ -178,4 +178,5 @@ class Presence(SlottedModel):
     user = Field(User, alias='user', ignore_dump=['presence'])
     game = Field(Activity)
     status = Field(enum(Status))
+    activities = ListField(Activity)
     client_status = Field(enum(ClientStatus))

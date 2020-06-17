@@ -265,7 +265,7 @@ def _get_cached_property(name, func):
             return value
 
     def _setattr(self, value):
-        setattr(self, '_' + name)
+        setattr(self, '_' + name, value)
 
     def _delattr(self):
         delattr(self, '_' + name)
