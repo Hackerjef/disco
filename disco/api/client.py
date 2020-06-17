@@ -145,13 +145,27 @@ class APIClient(LoggingClass):
             attachments=[],
             embed=None,
             sanitize=False,
-            allowed_mentions=[]):
+            allowed_mention_types=[],
+            allowed_mention_users=[],
+            allowed_mention_roles=[]):
 
         payload = {
             'nonce': nonce,
             'tts': tts,
-            'allowed_mentions': {"parse": allowed_mentions},
+            'allowed_mentions': {
+                'parse': [],
+                'users': [],
+                'roles': [],
+            }
         }
+
+        if allowed_mention_types:
+            payload['allowed_mentions']['parse'] = allowed_mention_types
+        if allowed_mention_users:
+            payload['allowed_mentions']['users'] = allowed_mention_users
+        if allowed_mention_roles:
+            payload['allowed_mentions']['roles'] = allowed_mention_roles
+
 
         if attachment:
             attachments = [attachment]
