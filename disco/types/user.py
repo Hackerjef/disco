@@ -50,7 +50,7 @@ class User(SlottedModel, with_equality('id'), with_hash('id')):
     verified = Field(bool)
     email = Field(text)
     flags = Field(int)
-    public_flags = Field(int)
+    public_flags = Field(int, default=0)
     premium_type = Field(int)
 
     presence = Field(None)
