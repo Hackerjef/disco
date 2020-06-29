@@ -94,12 +94,6 @@ class User(SlottedModel, with_equality('id'), with_hash('id')):
         return u'<User {} ({})>'.format(self.id, self)
 
 
-class ClientStatus(object):
-    DESKTOP = 'DESKTOP'
-    MOBILE = 'MOBILE'
-    WEB = 'WEB'
-
-
 class ActivityType(object):
     DEFAULT = 0
     STREAMING = 1
@@ -126,6 +120,11 @@ class Status(object):
     DND = 'DND'
     INVISIBLE = 'INVISIBLE'
     OFFLINE = 'OFFLINE'
+
+class ClientStatus(SlottedModel):
+    desktop = Field(enum(Status), default=None)
+    mobile = Field(enum(Status), default=None)
+    web = Field(enum(Status), default=None)
 
 
 class Party(SlottedModel):
@@ -179,4 +178,4 @@ class Presence(SlottedModel):
     game = Field(Activity)
     status = Field(enum(Status))
     activities = ListField(Activity)
-    client_status = Field(enum(ClientStatus))
+    client_status = Field(ClientStatus)
