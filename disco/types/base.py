@@ -388,6 +388,9 @@ class Model(six.with_metaclass(ModelMeta, Chainable)):
 
             if field.metadata.get('private'):
                 continue
+            
+            if field.metadata.get('hidden'):
+                continue
 
             if getattr(self, name) is UNSET:
                 continue
